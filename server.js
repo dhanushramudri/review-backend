@@ -44,38 +44,51 @@ app.post("/analyze", async (req, res) => {
     const parsedText = await parsePDF(pdfBuffer).then((data) => data.text);
 
     console.log(parsedText);
-    const prompt = `Analyze the resume and job description to provide ATS optimization recommendations. Return only a JSON object in the following structure (no markdown, no code blocks, just the raw JSON):
+    const prompt = `Analyze the resume and job description in detail to provide ATS optimization recommendations. Calculate an ATS match score based on keyword matches, required skills, and formatting. Return a JSON object with the following structure:
 
 {
   "sections": [
     {
       "title": "🎯 ATS Match Score",
-      "content": string
+      "content": "Your resume has an ATS match score of X% based on the following analysis:\\n- Found X out of Y required keywords (X%)\\n- Matched X out of Y required skills (X%)\\n- Format compatibility score: X%\\n\\nOverall compatibility: X%"
     },
     {
       "title": "🔑 Missing Keywords",
-      "content": string
+      "content": "List of specific keywords from the job description that are missing in your resume, ordered by importance. Include frequency of appearance in job description."
     },
     {
       "title": "💡 Recommended Changes",
-      "content": string
+      "content": "Specific, actionable recommendations to improve resume ATS compatibility, focusing on keyword placement and context."
     },
     {
       "title": "📝 Skills to Add",
-      "content": string
+      "content": "Prioritized list of skills mentioned in the job description that are missing from your resume, including both hard and soft skills."
     },
     {
       "title": "⚠️ Formatting Issues",
-      "content": string
+      "content": "Detailed analysis of any formatting issues that could affect ATS scanning, including section headers, bullet points, and text formatting."
     }
   ]
 }
 
-For the resume: ${parsedText}
+Analyze the following:
 
-And the job description: ${desc}
+Resume: ${parsedText}
 
-Provide specific, actionable recommendations for ATS optimization. Focus on keyword matches, format improvements, and content suggestions. Return only the JSON object with no additional text or formatting.`;
+Job Description: ${desc}
+
+Analysis Instructions:
+1. Calculate ATS Match Score by:
+   - Identifying all required skills and keywords in the job description
+   - Counting exact and partial keyword matches in the resume
+   - Evaluating formatting compatibility
+   - Weighing the importance of each keyword based on frequency and context
+2. Provide specific percentages in the match score
+3. List missing keywords with their frequency in the job description
+4. Provide actionable recommendations for improvement
+5. Focus on both technical and soft skills alignment
+
+Return only the JSON object without any markdown formatting or additional text.`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     const result = await model.generateContent(prompt);
