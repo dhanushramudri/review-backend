@@ -1,46 +1,22 @@
-const fs = require("fs");
-const parsePDF = require("pdf-parse");
 const express = require("express");
-const app = express();
-const bodyParser = require("body-parser");
-const multer = require("multer");
+const parsePDF = require("pdf-parse");
 const cors = require("cors");
 require("dotenv").config();
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 
+const app = express();
+
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  },
-});
-
-const upload = multer({ storage: storage });
-
-// Test route
-app.get("/", (req, res) => {
-  res.send("This is backend");
-});
-
-app.post("/upload", upload.single("pdf"), (req, res) => {
-  res.send("File uploaded");
-});
+app.use(express.json({ limit: "10mb" })); // Increased limit for base64 data
+app.use(express.urlencoded({ extended: true }));
 
 // Helper function to clean the AI response
 const cleanResponse = (text) => {
-  // Remove markdown code blocks and any other formatting
   let cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "");
   cleaned = cleaned.trim();
 
-  // Handle potential leading/trailing brackets
   if (!cleaned.startsWith("{")) {
     cleaned = cleaned.substring(cleaned.indexOf("{"));
   }
@@ -51,19 +27,21 @@ const cleanResponse = (text) => {
   return cleaned;
 };
 
-app.post("/:parseresume", async (req, res) => {
+app.post("/analyze", async (req, res) => {
   try {
-    const resumename = req.params.parseresume;
-    const desc = req.body.desc;
+    const { pdfBase64, desc } = req.body;
 
-    if (!resumename || !desc) {
-      return res
-        .status(400)
-        .json({ error: "Missing required fields: resumename or desc" });
+    if (!pdfBase64 || !desc) {
+      return res.status(400).json({
+        error: "Missing required fields: PDF content or job description",
+      });
     }
 
-    const dataBuffer = fs.readFileSync(`uploads/${resumename}`);
-    const parsedText = await parsePDF(dataBuffer).then((data) => data.text);
+    // Convert base64 to buffer
+    const pdfBuffer = Buffer.from(pdfBase64, "base64");
+
+    // Parse PDF directly from buffer
+    const parsedText = await parsePDF(pdfBuffer).then((data) => data.text);
 
     const prompt = `Analyze the resume and job description to provide ATS optimization recommendations. Return only a JSON object in the following structure (no markdown, no code blocks, just the raw JSON):
 
@@ -102,21 +80,15 @@ Provide specific, actionable recommendations for ATS optimization. Focus on keyw
     const result = await model.generateContent(prompt);
     const response = await result.response.text();
 
-    // Clean the response before parsing
+    // Clean and parse the response
     const cleanedResponse = cleanResponse(response);
-
-    // Log the cleaned response for debugging
-    console.log("Cleaned response:", cleanedResponse);
 
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error("Parse error:", parseError);
-      console.error("Failed to parse response:", cleanedResponse);
-
-      // Fallback response if parsing fails
-      parsedResponse = {
+      return res.status(500).json({
         sections: [
           {
             title: "⚠️ Processing Error",
@@ -124,12 +96,12 @@ Provide specific, actionable recommendations for ATS optimization. Focus on keyw
               "We encountered an error processing your resume. Please try again or contact support if the issue persists.",
           },
         ],
-      };
+      });
     }
 
     res.json(parsedResponse);
   } catch (error) {
-    console.error("Detailed error:", error);
+    console.error("Error:", error);
     res.status(500).json({
       error: error.message || "Internal server error",
       sections: [
