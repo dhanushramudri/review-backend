@@ -43,6 +43,7 @@ app.post("/analyze", async (req, res) => {
     // Parse PDF directly from buffer
     const parsedText = await parsePDF(pdfBuffer).then((data) => data.text);
 
+    console.log(parsedText);
     const prompt = `Analyze the resume and job description to provide ATS optimization recommendations. Return only a JSON object in the following structure (no markdown, no code blocks, just the raw JSON):
 
 {
@@ -98,6 +99,7 @@ Provide specific, actionable recommendations for ATS optimization. Focus on keyw
         ],
       });
     }
+    console.log("parsedResponse", parsedResponse);
 
     res.json(parsedResponse);
   } catch (error) {
