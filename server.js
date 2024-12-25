@@ -50,7 +50,7 @@ app.post("/analyze", async (req, res) => {
   "sections": [
     {
       "title": "🎯 ATS Match Score",
-      "content": "Your resume has an ATS match score of X% based on the following analysis:\\n- Found X out of Y required keywords (X%)\\n- Matched X out of Y required skills (X%)\\n- Format compatibility score: X%\\n\\nOverall compatibility: X%"
+      "content": "X%"
     },
     {
       "title": "🔑 Missing Keywords",
